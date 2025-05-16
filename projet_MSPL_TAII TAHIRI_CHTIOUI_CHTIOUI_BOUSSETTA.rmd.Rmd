@@ -1,0 +1,544 @@
+---
+title: "Projet modèles statistiques ‘Diabetes_Dataset’"
+author: " Yassmine TAI TAHIRI, Hadil CHTIOUI, Omar El Farouk CHTIOUI, Nada BOUSSETTA"
+---
+
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Aperçu du jeu de données
+
+Ce jeu de données comprend des informations sur la santé et les caractéristiques démographiques de 100 000 individus, dans le but de faciliter la recherche et la modélisation prédictive liées au diabète. Chaque ligne représente un individu unique, et le jeu de données comporte 16 colonnes avec des informations détaillées sur la santé et la démographie.
+
+Nous allons utiliser ce jeu de données dans le cadre de notre projet de la matière **"Modèles statistiques"** pour appliquer les concepts vus en cours, réaliser une analyse factorielle sur ce jeu de données et comprendre les facteurs qui peuvent causer le diabète, tout en visualisant des courbes et en effectuant une analyse visuelle.
+
+## Comment le jeu de données a-t-il été obtenu ?
+
+Le jeu de données utilisé dans ce projet a été téléchargé depuis Kaggle, à partir de ce lien :
+
+https://www.kaggle.com/datasets/priyamchoksi/100000-diabetes-clinical-dataset/data
+
+
+## Description de la question
+
+Quels sont les facteurs les plus associés à la présence de diabète chez un individu ?
+---
+
+# Méthodologie
+
+**Bibliothèques nécessaires**
+
+Avant de commencer notre analyse, nous devons importer les bibliothèques nécessaires qui faciliteront le traitement des données, les visualisations et les calculs statistiques.
+
+```{r}
+library(tidyverse)  
+library(tidyr)      
+library(ggplot2)   
+library(readr)
+library(corrplot)
+
+```
+
+## Analyse globale
+
+Nous allons maintenant procéder à une analyse globale de notre jeu de données pour mieux comprendre sa structure et son contenu.
+
+**Lecture du fichier**
+
+La première étape consiste à lire notre fichier Excel
+
+```{r}
+diabetes_dataset <- read_csv("C:/Users/bouss/Downloads/diabetes_dataset.csv")
+
+```
+
+**Dimensions du jeu de données**
+
+Vérifions le nombre de lignes et de colonnes dans notre jeu de données.
+
+```{r}
+dim(diabetes_dataset)
+
+```
+
+```{r}
+colnames(diabetes_dataset)
+
+```
+On constate qu'on a 16 colonnes différentes, qu'on a expliqué dans le rapport.
+
+**Résumé des données**
+
+Tout d'abord, nous utilisons la fonction `summary()` pour obtenir un aperçu statistique global du jeu de données.
+
+```{r}
+summary(diabetes_dataset)
+
+```
+
+Cette fonction affiche des informations sur la longueur, la classe et le mode de chaque variable.
+
+Ensuite, nous utilisons la fonction str() pour examiner la structure du jeu de données.
+
+```{r}
+str(diabetes_dataset)
+```
+
+Cela nous permet de vérifier les types de variables et leur contenu, ce qui est essentiel pour comprendre la structure des données avant d'effectuer des analyses plus avancées.
+
+## Netoyage des données 'Data Cleaning' 
+
+  - Identifier les doublons dans le jeu de données
+
+Nous commençons par vérifier s'il y a des lignes en double dans notre jeu de données.
+
+```{r}
+n_duplicates <- sum(duplicated(diabetes_dataset))
+n_duplicates
+```
+Nous les supprimons en utilisant l'indexation logique. Nous gardons uniquement les lignes uniques dans le jeu de données.
+
+```{r}
+diabetes_dataset <- diabetes_dataset[!duplicated(diabetes_dataset), ]
+
+```
+
+ - Identifier les valeurs manquantes
+
+Nous vérifions ensuite s'il y a des valeurs manquantes dans le jeu de données. 
+
+```{r}
+missing_summary <- colSums(is.na(diabetes_dataset))
+missing_summary
+```
+# Analyse 
+
+## Analyse de la colonnes diabetes
+
+Nous allons examiner les différentes valeurs que peut prendre la colonne diabetes, ainsi que leur fréquence d’apparition :
+
+```{r}
+table(diabetes_dataset$diabetes)
+
+```
+Le tableau de fréquences montre que :
+
+  -La valeur 0 indique que la personne n’est pas diabétique.
+
+  -La valeur 1 indique que la personne est diabétique.
+
+D’après les résultats, on observe que :
+
+  -91486 personnes ne sont pas diabétiques.
+
+  -8500 personnes sont diabétiques.
+
+```{r}
+ggplot(diabetes_dataset, aes(x = factor(diabetes), fill = factor(diabetes))) +
+  geom_bar() +
+  labs(
+    title = "Diabetes Distribution",
+    x = "Diabetes",
+    y = "Count",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(values = c("0" = "skyblue", "1" = "tomato")) +
+  theme_minimal()
+
+
+```
+On peut clairement remarquer un déséquilibre dans les classes de notre jeu de données. Ce type de déséquilibre peut poser problème si l’on souhaite utiliser ces données pour entraîner un modèle de prédiction, car le modèle pourrait être biaisé en faveur de la classe majoritaire.
+Cependant, dans notre cas, l'objectif n’est pas la prédiction, donc ce déséquilibre ne représente pas une contrainte majeure pour notre analyse.
+
+
+## Analyse des facteurs influençant le diabète
+
+- Genre :
+
+Nous commençons par analyser la colonne gender afin d’identifier les différentes valeurs qu’elle peut prendre et leur fréquence :
+
+```{r}
+table(diabetes_dataset$gender)
+
+```
+
+On observe que cette variable contient trois valeurs distinctes : **Male**, **Female** et **Other**.
+Toutefois, la catégorie Other représente une proportion très faible du jeu de données.
+
+Pour mieux visualiser la relation entre le sexe et le statut diabétique, on utilise un graphique en barres :
+
+```{r}
+# Barplot : répartition du diabète par genre
+ggplot(diabetes_dataset, aes(x = gender, fill = factor(diabetes))) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Diabetes by Gender",
+    x = "Gender",
+    y = "Count",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(
+    values = c("0" = "skyblue", "1" = "tomato"),
+    labels = c("Non-diabetic", "Diabetic")
+  ) +
+  theme_minimal()
+```
+On décide également de supprimer les observations dont le sexe est "Other", car elles sont peu représentatives par rapport aux autres catégories, et surtout parce qu’aucune de ces personnes n’est atteinte de diabète.
+
+```{r}
+diabetes_dataset <- diabetes_dataset[diabetes_dataset$gender != "Other", ]
+
+```
+
+- Âge :
+
+Nous poursuivons l’analyse avec l’âge. Commençons par calculer l’âge moyen de toutes les personnes dans le jeu de données :
+
+```{r}
+mean_age <- mean(as.numeric(diabetes_dataset$age), na.rm = TRUE)
+mean_age
+
+```
+Une autre analyse intéressante serait de comparer l'âge des personnes diabétiques et non diabétiques. Cela pourrait nous donner une idée de l'âge moyen des personnes atteintes de diabète par rapport aux autres.
+
+```{r}
+mean_age_diabetes <- diabetes_dataset %>%
+  group_by(diabetes) %>%
+  summarise(mean_age = mean(as.numeric(age), na.rm = TRUE))
+
+mean_age_diabetes
+
+```
+
+Pour une meilleure compréhension visuelle, utilisons un boxplot :
+
+```{r}
+ggplot(diabetes_dataset, aes(x = factor(diabetes), y = as.numeric(age), 
+  fill = factor(diabetes))) +
+  geom_boxplot() +
+  labs(
+    title = "Age Distribution by Diabetes Status",
+    x = "Diabetes",
+    y = "Age",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(values = c("0" = "skyblue", "1" = "tomato")) +
+  theme_minimal()
+
+```
+## Interprétation des résultats 
+
+Le boxplot montre que les personnes atteintes de diabète sont en moyenne plus âgées que celles qui ne le sont pas.
+
+Cette tendance est cohérente avec ce que l’on sait médicalement : l’âge est un facteur de risque important dans l’apparition du diabète.
+
+- Hypertension : 
+
+Nous analysons ici l’effet de l’hypertension sur la présence de diabète.
+
+```{r}
+ggplot(diabetes_dataset, aes(x = hypertension, fill = factor(diabetes))) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Diabetes by Hypertension Status",
+    x = "Hypertension",
+    y = "Count",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(values = c("0" = "skyblue", "1" = "tomato"),
+                    labels = c("Non-diabetic", "Diabetic")) +
+  theme_minimal()
+ 
+```
+
+-  Indice de Masse Corporelle (BMI) :
+
+Nous examinons le lien entre l’IMC (BMI) et le diabète.
+
+```{r}
+bmi_summary <- diabetes_dataset %>%
+  group_by(diabetes) %>%
+  summarise(mean_bmi = mean(as.numeric(bmi), na.rm = TRUE), 
+            sd_bmi = sd(as.numeric(bmi), na.rm = TRUE))
+
+bmi_summary
+```
+
+
+```{r}
+# Boxplot de la répartition du BMI par rapport au diabète
+ggplot(diabetes_dataset, aes(x = factor(diabetes), y = as.numeric(bmi),
+  fill = factor(diabetes))) +
+  geom_boxplot() +
+  labs(
+    title = "BMI Distribution by Diabetes Status",
+    x = "Diabetes",
+    y = "BMI",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(values = c("0" = "skyblue", "1" = "tomato")) +
+  theme_minimal()
+
+
+```
+Le BMI moyen des diabétiques est plus élevé que celui des non-diabétiques, cela renforcera l'idée que l'obésité est un facteur de risque pour le diabète.
+
+
+
+- HbA1c Level :
+
+Nous comparons ici les niveaux de HbA1c entre les personnes diabétiques et non diabétiques.
+
+
+```{r}
+# Boxplot du niveau d'hémoglobine A1c par rapport au diabète
+ggplot(diabetes_dataset, aes(x = factor(diabetes), y = as.numeric(hbA1c_level),
+  fill = factor(diabetes))) +
+  geom_boxplot() +
+  labs(
+    title = "HbA1c Level Distribution by Diabetes Status",
+    x = "Diabetes",
+    y = "HbA1c Level",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(values = c("0" = "skyblue", "1" = "tomato")) +
+  theme_minimal()
+```
+Cela permet de comparer les niveaux de HbA1c entre les personnes diabétiques et non diabétiques. On remarque que les personnes diabétiques présentent des valeurs plus élevées.
+
+- Tabagisme (smoking_history) : 
+
+Les valeurs possibles :
+
+```{r}
+table(diabetes_dataset$smoking_history)
+
+```
+On remarque la présence d'une valeur "No Info", qui ne permet pas de savoir si la personne a fumé ou non.
+
+Ces observations sont donc exclues de l’analyse, car elles ne sont pas significatives.
+
+
+
+```{r}
+# Barplot : Répartition de smoking_history sans "No Info"
+ggplot(diabetes_dataset %>% filter(smoking_history != "No Info"),
+  aes(x = smoking_history, fill = factor(diabetes))) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Diabetes by Smoking History",
+    x = "Smoking History",
+    y = "Count",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(values = c("0" = "skyblue", "1" = "tomato")) +
+  theme_minimal()
+
+```
+
+- Origine ethnique : African American :
+
+```{r}
+# Barplot : répartition du diabète en fonction de la race (African American)
+ggplot(diabetes_dataset, aes(x = factor(`race:AfricanAmerican`),
+  fill = factor(diabetes))) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Diabetes by Race: African American",
+    x = "African American",
+    y = "Count",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(values = c("0" = "skyblue", "1" = "tomato"),
+                    labels = c("Non-diabetic", "Diabetic")) +
+  theme_minimal()
+
+
+```
+
+
+- Niveau de glucose sanguin (Blood Glucose) : 
+
+
+```{r}
+# Boxplot : distribution du niveau de glucose sanguin par rapport au diabète
+ggplot(diabetes_dataset, aes(x = factor(diabetes),
+  y = as.numeric(blood_glucose_level), fill = factor(diabetes))) +
+  geom_boxplot() +
+  labs(
+    title = "Blood Glucose Level by Diabetes Status",
+    x = "Diabetes",
+    y = "Blood Glucose Level",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(values = c("0" = "skyblue", "1" = "tomato")) +
+  theme_minimal()
+
+```
+Comme attendu, les personnes diabétiques présentent en moyenne un niveau de glucose plus élevé, ce qui confirme que la glycémie est un indicateur essentiel du diabète.
+
+- Maladie cardiaque (Heart disease) : 
+
+```{r}
+# Barplot : répartition du diabète en fonction de la présence de maladies cardiaques
+ggplot(diabetes_dataset, aes(x = heart_disease, fill = factor(diabetes))) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Diabetes by Heart Disease Status",
+    x = "Heart Disease",
+    y = "Count",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(values = c("0" = "skyblue", "1" = "tomato"),
+                    labels = c("Non-diabetic", "Diabetic")) +
+  theme_minimal()
+
+```
+
+- Origine ethnique (Asian) :
+
+```{r}
+# Barplot : répartition du diabète en fonction de la race (Asian)
+ggplot(diabetes_dataset, aes(x = factor(`race:Asian`), fill = factor(diabetes))) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Diabetes by Race: Asian",
+    x = "Asian",
+    y = "Count",
+    fill = "Diabetes"
+  ) +
+  scale_fill_manual(
+    values = c("0" = "skyblue", "1" = "tomato"),
+    labels = c("Non-diabetic", "Diabetic")
+  ) +
+  theme_minimal()
+
+
+```
+## Corrélation entre variables 
+
+Pour aller plus loin, analysons les corrélations entre les variables numériques pertinentes.
+
+
+```{r}
+# Forcer la conversion des colonnes en numérique
+numerical_columns <- diabetes_dataset %>%
+  select(diabetes, age, bmi, hbA1c_level, blood_glucose_level,
+         hypertension, heart_disease)
+
+# S'assurer que toutes les colonnes sont bien au format numérique
+numerical_columns <- numerical_columns %>%
+  mutate(across(everything(), as.numeric))
+
+# Calculer la matrice de corrélation
+correlation_matrix <- cor(numerical_columns, method = "pearson", use = "complete.obs")
+
+# Visualiser la carte de corrélation
+corrplot(correlation_matrix, method = "color", 
+         type = "upper", 
+         order = "hclust", 
+         tl.col = "black", 
+         tl.cex = 0.8, 
+         addCoef.col = "white", # Afficher les coefficients dans la carte
+         diag = FALSE)  # Enlever les corrélations sur
+        #la diagonale (pour ne pas afficher les corrélations
+        #de chaque variable avec elle-même)
+
+```
+```{r}
+correlation_matrix
+```
+
+Les corrélations les plus marquantes (positives) avec le diabète sont :
+
+**blood_glucose_level → 0.42**
+C’est la variable la plus fortement corrélée avec le diabète. Cela confirme que les niveaux de glucose sanguin sont un indicateur clé pour détecter le diabète.
+
+**hbA1c_level → 0.40**
+Une autre variable très liée au diabète, logique puisque HbA1c reflète la glycémie sur le long terme.
+
+**age → 0.26**
+Les personnes âgées semblent plus susceptibles d’être diabétiques.
+
+**hypertension → 0.20**
+Une légère corrélation qui suggère qu’avoir de l’hypertension peut être un facteur de risque.
+
+**bmi → 0.21**
+Le surpoids (mesuré par l’IMC) est aussi un facteur notable.
+
+**heart_disease → 0.17**
+Une corrélation faible, mais présente.
+
+
+=> Les variables blood_glucose_level, hbA1c_level, age, BMI, et hypertension sont les facteurs les plus associés au diabète dans ce jeu de données.
+Les corrélations ne sont pas extrêmement fortes (aucune > 0.5), mais elles confirment bien des facteurs de risque connus du diabète.
+
+## Analyse croisée 1 : BMI et Blood Glucose chez les personnes diabétiques
+
+```{r}
+# Filtrer uniquement les personnes diabétiques
+diabetic_data <- diabetes_dataset %>%
+  filter(diabetes == 1)
+
+# Graphique de dispersion BMI vs. Blood Glucose
+ggplot(diabetic_data, aes(x = as.numeric(bmi), y = as.numeric(blood_glucose_level))) +
+  geom_point(alpha = 0.5, color = "tomato") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkred") +
+  labs(
+    title = "Relation entre BMI et Glucose chez les personnes diabétiques",
+    x = "BMI",
+    y = "Blood Glucose Level"
+  ) +
+  theme_minimal()
+
+```
+
+Le graphique montre une relation positive modérée entre le BMI et le niveau de glucose sanguin chez les personnes atteintes de diabète. Chaque point représente un individu, et la droite de régression (en rouge foncé) suggère qu’à mesure que le BMI augmente, le taux de glucose sanguin a tendance à augmenter également.
+
+
+
+## Analyse croisée 2 : Age et HbA1c par statut diabétique
+
+```{r}
+# Graphe de dispersion entre Age et HbA1c pour les personnes diabétiques uniquement
+ggplot(diabetic_data, aes(x = as.numeric(age), y = as.numeric(hbA1c_level))) +
+  geom_point(alpha = 0.4, color = "tomato") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred") +
+  labs(
+    title = "Relation entre l'âge et le HbA1c chez les personnes diabétiques",
+    x = "Age",
+    y = "HbA1c Level"
+  ) +
+  theme_minimal()
+```
+## Analyse croisée 3 : Blood Glucose et HbA1c
+
+```{r}
+# Graphique de dispersion entre Blood Glucose et HbA1c pour les personnes diabétiques
+ggplot(diabetic_data, aes(x = as.numeric(blood_glucose_level),
+  y = as.numeric(hbA1c_level))) +
+  geom_point(alpha = 0.5, color = "tomato") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred") +
+  labs(
+    title = "Relation entre Blood Glucose et HbA1c chez les personnes diabétiques",
+    x = "Blood Glucose Level",
+    y = "HbA1c Level"
+  ) +
+  theme_minimal()
+
+```
+Enfin, il est à noter que les deux dernières analyses croisées réalisées n’ont pas apporté de résultats particulièrement intéressants. Elles ne semblent pas refléter de relations pertinentes.
+
+
+
+#conclusion
+L’analyse globale, notamment via la matrice de corrélation, permet de mieux répondre à notre question de départ. Les facteurs les plus associés à la présence de diabète sont les suivants :
+
+**blood_glucose_level** (corrélation de 0.42) et **hbA1c_level** (0.40), qui sont logiquement des indicateurs biologiques centraux dans le diagnostic du diabète.
+
+Suivent ensuite l’**âge** (0.26), l’**hypertension** (0.20), le **bmi** (0.21) et la **présence de maladie cardiaque** (0.17). Bien que ces corrélations ne soient pas très élevées (aucune n’excède 0.5), elles confirment des facteurs de risque bien établis dans la littérature médicale.
+
+Ainsi, ce jeu de données met en évidence des liens cohérents entre certaines caractéristiques cliniques et la probabilité d’être atteint de diabète.
+
